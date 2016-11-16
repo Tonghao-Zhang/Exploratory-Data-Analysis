@@ -1,0 +1,243 @@
+---
+title: "EDA Oct 5"
+output: pdf_document
+---
+##ex2
+```{r echo=FALSE}
+area<-c("Berkshire","Franklin-Hampshire","Holyoke-Chicopee","Springfield","Westfield","Fitchburg","Gardner-Athol","Blackstone Valley","Southbridge","Wocrester","Cambridge-Somerville","Concord","Lowell","Metropolitan-Beaverbrook","Mystic Valley","Danvers","Haverhill-Newburyport","Lawrence","Lynn","Tri-Cities","Eastern Middlesex","Cape Ann","Westwood-Norwood","Newton-Weston-Wellesley","South Shore","Framingham","Westborough","Boston State","Boston University","Lindermann Mental Health Center","Massachusetts Mental Health Center","Tufts Mental Health Center","Cape Cod and Islands","Brockton","Fall River","Foxboro","New Bedford","Plymouth","Taunton")
+PVRTY<-c(61,54,70,81,46,63,54,44,53,60,80,25,59,42,34,46,63,62,67,54,31,54,31,26,41,34,42,82,202,89,84,133,85,51,91,45,102,48,60,202)
+SING<-c(38,47,40,40,36,37,37,35,36,42,52,34,37,42,37,37,37,39,39,41,37,38,37,43,39,34,35,44,57,46,61,50,35,37,37,37,38,33,37,61)
+RINC<-c(127,213,134,131,116,127,128,114,123,130,177,104,113,112,91,108,126,122,121,122,96,118,88,95,101,90,101,125,231,145,214,158,148,114,144,113,151,106,120,88)
+INFM<-c(144,152,149,219,174,171,178,125,213,191,194,96,167,118,165,135,178,243,107,176,109,146,104,70,156,157,136,257,276,141,177,140,198,154,152,119,171,151,204,70)
+WARD<-c(50,37,40,67,48,50,85,58,78,52,59,19,45,32,31,41,57,48,64,63,46,41,31,15,38,49,49,108,153,124,138,88,54,72,70,40,57,84,42,15)
+RESP<-c(92,163,215,210,128,239,317,195,108,158,263,101,266,290,169,168,146,145,195,254,99,146,132,105,131,198,237,202,461,350,275,467,201,169,253,202,195,140,179,467)
+
+PVRTY.t<-c(61,54,70,81,46,63,54,44,53,60,80,25,59,42,34,46,63,62,67,54,31,54,31,26,41,34,42,82,202,89,84,133,85,51,91,45,102,48,60)
+SING.t<-c(38,47,40,40,36,37,37,35,36,42,52,34,37,42,37,37,37,39,39,41,37,38,37,43,39,34,35,44,57,46,61,50,35,37,37,37,38,33,37)
+RINC.t<-c(127,213,134,131,116,127,128,114,123,130,177,104,113,112,91,108,126,122,121,122,96,118,88,95,101,90,101,125,231,145,214,158,148,114,144,113,151,106,120)
+INFM.t<-c(144,152,149,219,174,171,178,125,213,191,194,96,167,118,165,135,178,243,107,176,109,146,104,70,156,157,136,257,276,141,177,140,198,154,152,119,171,151,204)
+WARD.t<-c(50,37,40,67,48,50,85,58,78,52,59,19,45,32,31,41,57,48,64,63,46,41,31,15,38,49,49,108,153,124,138,88,54,72,70,40,57,84,42)
+RESP.t<-c(92,163,215,210,128,239,317,195,108,158,263,101,266,290,169,168,146,145,195,254,99,146,132,105,131,198,237,202,461,350,275,467,201,169,253,202,195,140,179)
+ex1<-data.frame(PVRTY,SING,RINC,INFM,WARD,RESP)
+#pairs(ex1)
+lm.1<-lm(RESP~PVRTY+SING+RINC+INFM+WARD,data = ex1)
+#cor(ex1,method = "kendall",use = "pairwise")
+#summary(lm.1)
+```
+####a)
+
+**First fit**
+from the pair plot we can see RESP and PVRTY have the strongest linear relationship.
+```{r, echo=FALSE}
+##(slope,intercept) RRfit(response vaiable, independent variable)
+RRfit<-function(response,independent){
+  ##sort the data in ascending seqence
+  response<-response[order(independent)]
+  independent<-sort(independent)
+  index<-function(n){
+    if(n%%3==0){
+      a=n/3;b=2*n/3+1
+    }
+    if(n%%3==1){
+      a=(n-1)/3;b=(2*n+4)/3
+    }
+    if(n%%3==2){
+      a=(n+1/3);b=(2*n+2)/2
+    }
+    data.frame(a,b)
+  }
+  ##separate the data into different groups
+  n<-length(independent)
+  xleft<-independent[1:index(n)[1,1]];xright<-independent[index(n)[1,2]:n]
+  yleft<-response[1:index(n)[1,1]];yright<-response[index(n)[1,2]:n]
+  ##fit the RRline,iterate 5 times
+  xL<-median(xleft);xR<-median(xright)
+  yL<-median(yleft);yR<-median(yright)
+  slope<-(yR-yL)/(xR-xL);slopeT<-slope
+  intercept<-median(response-slope*independent);interceptT<-intercept
+  for(i in 1:4){
+    response<-response-slope*independent-intercept
+    yleft<-response[1:13];yright<-response[27:39]
+    xL<-median(xleft);xR<-median(xright)
+    yL<-median(yleft);yR<-median(yright)
+    slope<-(yR-yL)/(xR-xL)
+    intercept<-median(response-slope*independent)
+    slopeT<-slopeT+slope;interceptT<-interceptT+intercept
+  }
+  data.frame(slopeT,interceptT)
+}
+fit1<-RRfit(RESP,PVRTY)
+sweep<-function(y,x){
+  return(y-RRfit(y,x)$slopeT*x-RRfit(y,x)$interceptT)
+}
+RESP.1<-sweep(RESP,PVRTY)
+```
+fit by PVRTY: RESP = `r fit1$interceptT` + `r fit1$slopeT`*PVRTY + RESP.1
+
+```{r,echo=FALSE}
+sweep41<-RRfit(INFM,PVRTY)
+sweep21<-RRfit(SING,PVRTY)
+SING.1<-sweep(SING,PVRTY)
+RINC.1<-sweep(RINC,PVRTY)
+INFM.1<-sweep(INFM,PVRTY)
+WARD.1<-sweep(WARD,PVRTY)
+fit2<-RRfit(RESP.1,INFM.1)
+RESP.14<-sweep(RESP.1,INFM.1)
+#pairs(data.frame(SING.1,RINC.1,INFM.1,WARD.1,RESP.1))
+m<-cbind(RESP.1,SING.1,RINC.1,INFM.1,WARD.1)
+
+#cor(m,method = "kendall",use = "pairwise")
+```
+**Second fit**
+sweep PVRTY out of all the other variables, and plot their scatter plots against RESP.1. From observation, choose INFM as the second carrier.
+
+INFM sweep out of PVRTY: INFM = `r sweep41$interceptT` + `r sweep41$slopeT`*PVRTY + INFM.1
+
+fit RESP.1 by INFM.1: RESP.1 = `r fit2$interceptT` + `r fit2$slopeT`*INFM.1 + RESP.14
+```{r, echo=FALSE}
+sweep24<-RRfit(SING.1,INFM.1)
+SING.14<-sweep(SING.1,INFM.1)
+fit3<-RRfit(RESP.14,SING.14)
+```
+
+**Third fit**
+sweep INFM.1 out of all the other variables.1, and plot their scatter plots against RESP.14. From observation, choose SING as the third carrier.
+
+PVRTY sweep out of SING: SING = `r sweep21$interceptT` + `r sweep21$slopeT`*PVRTY + SING.1
+
+INFM.1 sweep out of SING.1: SING.1 = `r sweep24$interceptT` + `r sweep24$slopeT`*INFM.1 + SING.14
+
+fit RESP.14 by SING.14: RESP.14 = `r fit3$interceptT` + `r fit3$slopeT`*SING.14 + RESP.142
+
+**result**
+RESP = 65.74 + 1.57PVRTY - 0.21INFM + 0.88SING
+
+####b)
+The outlier does not affect my my selection of variables too much.
+
+####c)
+```{r}
+lm(RESP.t~PVRTY.t+SING.t+RINC.t+INFM.t+WARD.t)##least square without outlier
+lm(RESP~PVRTY+SING+RINC+INFM+WARD,data = ex1)##least square with outlier
+```
+
+from the comparison, we can see least square regression is more effected by the outlier, with intercept and coefficent for RINC, INFM and WARD increasing, coefficient for PVRTY and SING decreasing.
+
+##ex4
+####a)
+**sum of squard residuals**
+advantage:we have a close form for the fit that minimize the sum of squard residuals.
+disadvantage:least square regression line is always the best under this criterion, while LSR is unrobust to outliers. 
+
+**sum of absolute residuals**
+advantage:very intuitive, measures the distance between fit and real data. 
+disadvantage:there's no close form to minimize the sum of absolute residuals, have to do iteration. and there can be multiple lines that minimize it. unrobust to outliers.
+
+**fourth spread of residuals**
+advantage:easy to calculate compared to other criteria. robust to outliers
+disadvantage:fourth-spread is robust, with the trade-off of sensitivity. two set of residuals can differ considerably while fourth-spreads stay close.
+
+####b)
+sum of absobulte residuals is the most suitable criterion.
+
+$R^2$ statistic defined as $\frac{SSR}{SSTO}$ in linear regression analysis. it measures how much total variance is captured in the regression fit.
+
+####c)
+when we already know the data come from multivariate normal distribution, which meets the error term assumption in LSR,  we benefit from the close form trait of  least square. least square regression theory provides well-developed inference without worrying whether the error terms follow normal distribution.
+
+##ex5
+```{r,echo=FALSE}
+rrline1 <- function(x,y) {
+n <- length(x); nmod3 <- n%%3;
+if (nmod3 == 0) n3 <- n/3;
+if (nmod3 == 1) n3 <- (n - 1)/3;
+if (nmod3 == 2) n3 <- (n + 1)/3;
+x.order <- order(x)
+medxL <- median(x[x.order][1:n3])
+medxR <- median(rev(x[x.order])[1:n3])
+medyL <- median(y[x.order][1:n3])
+medyR <- median(rev(y[x.order])[1:n3])
+slope1 <- (medyR - medyL)/(medxR - medxL)
+int1 <- median(y - slope1 * x)
+newy <- y - slope1 * x - int1
+sumres <- sum(abs(newy))
+list(a = int1, b = slope1, sumres = sumres, res = newy) }
+run.rrline <- function (xx, yy, iter = 5) { out.coef <- matrix(0, iter, 3)
+ll <- (1:length(xx))[!is.na(xx) & !is.na(yy)] 
+n <- length(ll); x <- xx[ll]; y <- yy[ll]; newy <- y
+for (i in 1:iter) {
+rr <- rrline1(x, newy)
+out.coef[i, ] <- c(rr$a, rr$b, rr$sumres) 
+newy <- rr$res }
+dimnames(out.coef) <- list(format(1:iter),c("a","b","|res|"))
+aa <- sum(out.coef[, 1]); bb <- sum(out.coef[, 2]);
+cc <- sum(abs(y - aa - bb * x))
+res <- yy - aa - bb * xx
+out.coef <- rbind(out.coef, c(aa, bb, cc)) 
+print(round(out.coef, 5))
+list(a = aa, b = bb, res = res, coef = out.coef) }
+y<-rbind(
+  c(202,165,191,134),
+  c(145,201,203,180),
+  c(188,185,185,220),
+  c(201,231,238,261),
+  c(202,178,198,226),
+  c(228,221,207,204)
+)
+x<-rbind(
+  c(288,22,27,19),
+  c(23,26,28,24),
+  c(27,24,27,28),
+  c(24,28,30,30),
+  c(30,26,26,29),
+  c(30,25,27,24)
+)
+```
+####a)
+```{r,include=TRUE}
+medx<-medpolish(x)
+medy<-medpolish(y)
+ex<-medx$residuals
+ey<-medy$residuals
+```
+```{r,echo=FALSE}
+
+rfit<-run.rrline(ex,ey,10)
+c0<-medy$overall+rfit$a-rfit$b*(medx$overall)
+c1<-rfit$b
+```
+In comparison to the result of data without outliers, change in coefficients is slight. 
+####b)
+```{r,echo=FALSE}
+lfit<-lm(as.vector(ey)~as.vector(ex))
+summary(lfit)
+
+b0<-medy$overall+lfit$coefficients[1]-lfit$coefficients[2]*(medx$overall)
+b1<-lfit$coefficients[2]
+```
+The coefficients differ a lot from table 7-8.
+
+####c)
+
+**boxplots**
+
+```{r,echo=FALSE}
+#????????????##################################################3
+rr<-c(y-c0-c1*x)
+rl<-c(y-b0-b1*x)
+re<-data.frame(rr,rl)
+colnames(re)<-c("RRline","LSR")
+
+err<-c(ey-rfit$a-rfit$b*ex)
+erl<-c(ey-lfit$coefficients[1]-lfit$coefficients[2]*ex)
+ere<-data.frame(err,erl)
+colnames(ere)<-c("RRline","LSR")
+
+#????????????????????
+par(mfrow=c(1,2))
+boxplot(re,outline=F,main="fited values")
+boxplot(ere,outline=F,main="residuals")
+
+```
+
+From the boxplots we can clearly see using RRline, both fited values and residuals have smaller variance. LSR method tries to evenly distribute data on both side of the line, causing the boxplot to be more symmetric. In comparison to Figure 7-10, outliers apparently affect LSR more than RRline method, due to unrobust nature of LSR.

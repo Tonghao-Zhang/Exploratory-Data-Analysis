@@ -1,0 +1,303 @@
+---
+title: "EDA Oct 31"
+output: pdf_document
+---
+
+##Ex1
+
+Jenkins & Johnson (RAND report) lists 65 incidents of international terrorism in Argentina and 28 in  Turkey during the 76 months between Jan 1968 and Apr 1974.  From each frequency distribution, calculate nk* and make the
+Poissonness plots.  Does a negative binomial model seem to give a better fit?  If so, choose a value of n for the negative binomial distribution and examine the plots.
+
+```{r 1,echo=FALSE}
+Argentina<-c(46,15,5,3,5,1,1)
+Turkey<-c(60,9,4,2,0,1,0)
+poisplot<-function(k,nk,which){ 
+  lenk<-length(k)
+  if(missing(which)) 
+    which<-(1:lenk) 
+  k0<-k[which];nk0<-nk[which]
+  k1<-k0[nk[which]>0];nk1<-nk0[nk0>0]##get rid of nk=0
+  N<-sum(nk1);nk2<-nk1
+  nk2[nk1==1]<-exp(-1)
+  nk2[nk1>1]<-(nk1[nk1>1])*(1-0.8/N)-0.67 
+  phik<-log((gamma(k1+1))*nk2/N)
+  rr<-run.rrline(k1,phik)
+  pkhat<-nk1/N
+  cilim<-1.96*sqrt((1-pkhat)/(nk1-(.47+.25*pkhat)*sqrt(nk1)))
+  rng<-range(c(phik-cilim,phik+cilim))
+  par(mfrow=c(1,2))
+  plot(k1,phik,ylim=rng,xlab="k",ylab="phik",type="n",main="Poisson plot",sub=paste(paste("Intercept",format(round(rr$coef[6,1],3))),paste("Slope",format(round(rr$coef[6,2],3))))) 
+  text(k1,phik,format(nk1)) 
+  segments(k1,phik-cilim,k1,phik+cilim,lty=2) 
+  abline(rr$coef[6,1],rr$coef[6,2],col=2)
+  lamhat<-exp(rr$coef[6,2])
+  tmp<-ifelse(nk0>0,sqrt(2+4*nk0),1)
+  exptd<-N*exp(-1*lamhat)*(lamhat^k0)/gamma(k0+1) 
+  dk<-tmp-sqrt(4*exptd+1)
+  plot(k0,dk,xlab="k",ylab="FT residual") 
+  abline(h=c(-2,0,2),lty=c(2,1,2),col=c(2,1,2)) 
+  list(k=k1,nk=nk1,nkstar=nk2,phik=phik,cilim=cilim,int=rr$coef[6,1],slope=rr$coef[6,2],res=dk,expected=exptd) 
+  par(mfrow=c(1,1))
+}
+
+rrline1<-function(x,y){
+n<-length(x);nmod3<-n%%3;
+if(nmod3==0) 
+  n3<-n/3;
+if(nmod3==1) 
+  n3<-(n-1)/3;
+if(nmod3==2) 
+  n3<-(n+1)/3;
+x.order<-order(x)
+medxL<-median(x[x.order][1:n3])
+medxR<-median(rev(x[x.order])[1:n3])
+medyL<-median(y[x.order][1:n3])
+medyR<-median(rev(y[x.order])[1:n3])
+slope1<-(medyR-medyL)/(medxR-medxL)
+int1<-median(y-slope1*x)
+newy<-y-slope1*x-int1
+sumres<-sum(abs(newy))
+return(list(a=int1,b=slope1,sumres=sumres,res=newy))
+}
+
+run.rrline<-function(xx,yy,iter=5){
+out.coef<-matrix(0,iter,3)
+ll<-(1:length(xx))[!is.na(xx)&!is.na(yy)]
+n<-length(ll);x<-xx[ll];y<-yy[ll];newy<-y
+for(i in 1:iter){
+  rr<-rrline1(x,newy)
+  out.coef[i,]<-c(rr$a,rr$b,rr$sumres)
+  newy<-rr$res
+  }
+dimnames(out.coef)<-list(format(1:iter),c("a","b","|res|"))
+aa<-sum(out.coef[, 1]);bb<-sum(out.coef[, 2]);cc<-sum(abs(y-aa-bb*x))
+res<-yy-aa-bb*xx
+out.coef<-rbind(out.coef, c(aa, bb, cc))
+#print(round(out.coef,5))
+return(list(a=aa, b=bb,res=res,coef=out.coef))
+}
+
+k<-c(0:6)
+poisplot(k,Argentina)
+poisplot(k,Turkey)
+```
+
+```{r 1.nb,echo=FALSE}
+negbinplot<-function(k,nk,which,n){ 
+  lenk<-length(k)
+  if(missing(which)) 
+    which<-(1:lenk) 
+  k0<-k[which];nk0<-nk[which]
+  k1<-k0[nk[which]>0];nk1<-nk0[nk0>0]##get rid of nk=0
+  N<-sum(nk1)
+  deno<-choose(n+k1-1,k1)
+  phik<-log(nk1/N/deno)
+  rr<-run.rrline(k1,phik)
+  pkhat<-nk1/N
+  cilim<-1.96*sqrt((1-pkhat)/(nk1-(.47+.25*pkhat)*sqrt(nk1)))
+  rng<-range(c(phik-cilim,phik+cilim))
+  par(mfrow=c(1,2))
+  plot(k1,phik,ylim=rng,xlab="k",ylab="phik",type="n",main="Negative binominal plot",sub=paste(paste("Intercept",format(round(rr$coef[6,1],3))),paste("Slope",format(round(rr$coef[6,2],3))))) 
+  text(k1,phik,format(nk1)) 
+  segments(k1,phik-cilim,k1,phik+cilim,lty=2) 
+  abline(rr$coef[6,1],rr$coef[6,2],col=2)
+  phat<-1-exp(rr$coef[6,2])
+  tmp<-ifelse(nk0>0,sqrt(2+4*nk0),1)
+  exptd<-choose(n+k0-1,k0)*phat^n*(1-phat)^k0*N
+  dk<-tmp-sqrt(4*exptd+1)
+  plot(k0,dk,xlab="k",ylab="FT residual",sub = paste("n =",format(n))) 
+  abline(h=c(-2,0,2),lty=c(2,1,2),col=c(2,1,2)) 
+  list(k=k1,nk=nk1,phik=phik,cilim=cilim,int=rr$coef[6,1],slope=rr$coef[6,2],res=dk,expected=exptd) 
+  par(mfrow=c(1,1))
+}
+negbinplot(k,Argentina,n=1)
+negbinplot(k,Turkey,n=1)
+```
+
+####Solution
+
+The poissonness plots do not seem to be appropriate here. The negative binomial plot is a better fit. Here I choose n = 1.
+
+
+##Ex2
+
+A sample of 4021 British households in 1950 yielded the following numbers of households (nk) with exactly k children (under 14 years of age). Use a Poissonness plot to judge the appropriateness of a Poisson plot.  About how many households with no children would you have expected?  How well does the model fit for k >= 1?  Does a negative binomial distribution fit better?
+
+```{r 2,echo=FALSE}
+k<-c(0:9)
+nk2<-c(2303,831,565,212,67,23,15,3,1,1)
+poisplot(k,nk2)
+```
+
+####Solution
+
+Based on the poisson model, I will expect 850 households with no child.
+
+```{r 2.2,echo=FALSE}
+poisplot(k,nk2,c(2:10))
+negbinplot(k,nk2,n=1)
+```
+
+##Ex3
+
+Sylvia Ann Howland data:  number of coincidences between corresponding downstrokes in comparisons of all possible pairs from 42 uncontested signature of Sylvia Ann Howland.
+
+```{r 3,echo=FALSE}
+k=c(0:12)
+nk3<-c(0,0,15,92,131,147,143,99,88,55,34,17,15)
+binoplot<-function(k,nk,which,n){ 
+  lenk<-length(k)
+  if(missing(which)) 
+    which<-(1:lenk) 
+  k0<-k[which];nk0<-nk[which]
+  k1<-k0[nk[which]>0];nk1<-nk0[nk0>0]##get rid of nk=0
+  N<-sum(nk1);nk2<-nk1
+  phik<-log(nk1)-log(N)-log(choose(n,k1))
+  rr<-run.rrline(k1,phik)
+  pkhat<-nk1/N
+  cilim<-1.96*sqrt((1-pkhat)/(nk1-(.47+.25*pkhat)*sqrt(nk1)))
+  rng<-range(c(phik-cilim,phik+cilim))
+  par(mfrow=c(1,2))
+  phat<-exp(rr$coef[6,2])
+  phat<-phat/(1+phat)
+  plot(k1,phik,ylim=rng,xlab="k",ylab="phik",type="n",main="Binomial plot",sub=paste("p",format(round(phat,3)))) 
+  text(k1,phik,format(nk1)) 
+  segments(k1,phik-cilim,k1,phik+cilim,lty=2) 
+  abline(rr$coef[6,1],rr$coef[6,2],col=2)
+  tmp<-ifelse(nk0>0,sqrt(2+4*nk0),1)
+  exptd<-choose(n,k0)*phat^k0*(1-phat)^(n-k0)*N
+  dk<-tmp-sqrt(4*exptd+1)
+  plot(k0,dk,xlab="k",ylab="FT residual",sub = paste("n =",format(n))) 
+  abline(h=c(-2,0,2),lty=c(2,1,2),col=c(2,1,2)) 
+  list(k=k1,nk=nk1,nkstar=nk2,phik=phik,cilim=cilim,int=rr$coef[6,1],slope=rr$coef[6,2],res=dk,expected=exptd) 
+  par(mfrow=c(1,1))
+}
+binoplot(k,nk3,n=30)
+```
+
+####Solution
+
+Based on the shape of $n_k$, I fit a binomial distribution with n=30. It work pretty well. p in the binomial distribution is 0.202.
+
+##Ex4
+
+Below are the frequency distributions of library circulation data of the Wishart Library, University of Cambridge, and the "long-loan" collection of the Sussex University Library. Using plots for the geometric distribution and the negative binomial distribution, compare the behavior of these data sets to that of the data from the Hillman library.
+
+```{r 4,echo=FALSE}
+k=c(1:16)
+Hillman<-c(63526,25653,11855,6055,3264,1727,931,497,275,124,68,28,13,6,9,4)
+Sussex<-c(9674,4351,2275,1260,663,355,154,72,37,14,6,2,0,1)
+Wishart<-c(65,26,12,10,5,3,1)
+gemplot<-function(k,nk,which){
+  n<-1
+  lenk<-length(k)
+  if(missing(which)) 
+    which<-(1:lenk) 
+  k0<-k[which];nk0<-nk[which]
+  k1<-k0[nk[which]>0];nk1<-nk0[nk0>0]##get rid of nk=0
+  N<-sum(nk1)
+  deno<-choose(n+k1-1,k1)
+  phik<-log(nk1/N/deno)
+  rr<-run.rrline(k1,phik)
+  pkhat<-nk1/N
+  cilim<-1.96*sqrt((1-pkhat)/(nk1-(.47+.25*pkhat)*sqrt(nk1)))
+  rng<-range(c(phik-cilim,phik+cilim))
+  par(mfrow=c(1,2))
+  plot(k1,phik,ylim=rng,xlab="k",ylab="phik",type="n",main="geometric plot",sub=paste(paste("Intercept",format(round(rr$coef[6,1],3))),paste("Slope",format(round(rr$coef[6,2],3))))) 
+  text(k1,phik,format(nk1)) 
+  segments(k1,phik-cilim,k1,phik+cilim,lty=2) 
+  abline(rr$coef[6,1],rr$coef[6,2],col=2)
+  phat<-1-exp(rr$coef[6,2])
+  tmp<-ifelse(nk0>0,sqrt(2+4*nk0),1)
+  exptd<-choose(n+k0-1,k0)*phat^n*(1-phat)^k0*N
+  dk<-tmp-sqrt(4*exptd+1)
+  plot(k0,dk,xlab="k",ylab="FT residual",sub = paste("n =",format(n))) 
+  abline(h=c(-2,0,2),lty=c(2,1,2),col=c(2,1,2)) 
+  list(k=k1,nk=nk1,phik=phik,cilim=cilim,int=rr$coef[6,1],slope=rr$coef[6,2],res=dk,expected=exptd) 
+  par(mfrow=c(1,1))
+}
+
+gemplot(c(1:16),Hillman)
+gemplot(c(1:14),Sussex)
+gemplot(c(1:7),Wishart)
+
+negbinplot(c(1:16),Hillman,n=2)
+negbinplot(c(1:14),Sussex,n=3)
+negbinplot(c(1:7),Wishart,n=3)
+```
+
+####Solution
+
+No matter the value of n in negative binomial plot, FT residual at k=1 is always an outlier. Also k=1 has greatest number of observation, which makes concern whether negative binomial is an appropriate fit.
+
+
+
+
+##Ex5
+
+```{r 5,echo=FALSE}
+logplot<-function(k,nk,which){ 
+  lenk<-length(k)
+  if(missing(which)) 
+    which<-(1:lenk) 
+  k0<-k[which];nk0<-nk[which]
+  k1<-k0[nk[which]>0];nk1<-nk0[nk0>0]##get rid of nk=0
+  N<-sum(nk1);nk2<-nk1
+  phik<-log(k1*nk1/N)
+  rr<-run.rrline(k1,phik)
+  pkhat<-nk1/N
+  cilim<-1.96*sqrt((1-pkhat)/(nk1-(.47+.25*pkhat)*sqrt(nk1)))
+  rng<-range(c(phik-cilim,phik+cilim))
+  par(mfrow=c(1,2))
+  thetahat<-exp(rr$coef[6,2])
+  alphahat<-1/exp(-rr$coef[6,1])
+  plot(k1,phik,ylim=rng,xlab="k",ylab="phik",type="n",main="Logseries plot",sub=paste(paste("theta",format(thetahat)),paste("alpha",format(alphahat))))
+  text(k1,phik,format(nk1)) 
+  segments(k1,phik-cilim,k1,phik+cilim,lty=2) 
+  abline(rr$coef[6,1],rr$coef[6,2],col=2)
+ 
+  tmp<-ifelse(nk0>0,sqrt(2+4*nk0),1)
+  exptd<-alphahat*thetahat^k0/k0*N
+  dk<-tmp-sqrt(4*exptd+1)
+  plot(k0,dk,xlab="k",ylab="FT residual") 
+  abline(h=c(-2,0,2),lty=c(2,1,2),col=c(2,1,2)) 
+  list(k=k1,nk=nk1,nkstar=nk2,phik=phik,cilim=cilim,int=rr$coef[6,1],slope=rr$coef[6,2],res=dk,expected=exptd) 
+  par(mfrow=c(1,1))
+}
+
+k<-c(1:10)
+nk5<-c(77,35,29,16,3,4,4,1,0,1)
+logplot(k,nk5)
+```
+
+####Solution 
+
+Here I used $\theta = 0.7831462$, $\alpha = 0.6713723$.
+
+```{r,echo=FALSE}
+k0<-k;nk0<-nk5
+  k1<-k0[nk0>0];nk1<-nk0[nk0>0]##get rid of nk=0
+  N<-sum(nk1);nk2<-nk1
+  phik<-log(k1*nk1/N)
+  pkhat<-nk1/N
+  cilim<-1.96*sqrt((1-pkhat)/(nk1-(.47+.25*pkhat)*sqrt(nk1)))
+  rng<-range(c(phik-cilim,phik+cilim))
+  par(mfrow=c(1,2))
+  thetahat<-0.8
+  slope<-log(thetahat)
+  intercept<--log(-log(1-thetahat))
+  alphahat<-1/exp(-intercept)
+  plot(k1,phik,ylim=rng,xlab="k",ylab="phik",type="n",main="Logseries plot",sub=paste(paste("theta",format(thetahat)),paste("alpha",format(alphahat))))
+  text(k1,phik,format(nk1))
+  segments(k1,phik-cilim,k1,phik+cilim,lty=2) 
+  abline(intercept,slope,col=2)
+ 
+  tmp<-ifelse(nk0>0,sqrt(2+4*nk0),1)
+  exptd<-alphahat*thetahat^k0/k0*N
+  dk<-tmp-sqrt(4*exptd+1)
+  plot(k0,dk,xlab="k",ylab="FT residual") 
+  abline(h=c(-2,0,2),lty=c(2,1,2),col=c(2,1,2)) 
+  par(mfrow=c(1,1))
+```
+
+$\theta = 0.8$ works equally well.

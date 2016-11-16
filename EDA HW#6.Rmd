@@ -1,0 +1,222 @@
+---
+title: "EDA homework 6"
+output: pdf_document
+---
+
+1. *Freeny data*: In R, type: `data("freeny")`. These are the data used in the midterm problem 7: Y = Column 1 (Quarterly revenue); X1, X2, X3 are Columns 3,4,5 (Price Income, Income Level, Market Potential), respectively.
+
+(a) Fit a least squares model to these data:
+
+         lm.freeny <- lm(freeny[,1] ~ freeny[,3] + freeny[,4] + freeny[,5], data=freeny)
+
+```{r 1.a, include=FALSE}
+data("freeny")
+lm.freeny <- lm(freeny[,1] ~ freeny[,3] + freeny[,4] + freeny[,5], data=freeny)
+```
+
+    the formula:
+
+    y = `r lm.freeny$coefficients[1]` + `r lm.freeny$coefficients[2]`X1 + `r lm.freeny$coefficients[3]`X2 + `r lm.freeny$coefficients[4]`X3
+
+(b) Now fit a robust fit by sweeping out, in turn, X3, then X1, then X2.
+```{r 1.b,include=FALSE}
+rrline1<-function(x,y){
+n<-length(x);nmod3<-n%%3;
+if(nmod3==0) 
+  n3<-n/3;
+if(nmod3==1) 
+  n3<-(n-1)/3;
+if(nmod3==2) 
+  n3<-(n+1)/3;
+x.order<-order(x)
+medxL<-median(x[x.order][1:n3])
+medxR<-median(rev(x[x.order])[1:n3])
+medyL<-median(y[x.order][1:n3])
+medyR<-median(rev(y[x.order])[1:n3])
+slope1<-(medyR-medyL)/(medxR-medxL)
+int1<-median(y-slope1*x)
+newy<-y-slope1*x-int1
+sumres<-sum(abs(newy))
+return(list(a=int1,b=slope1,sumres=sumres,res=newy))
+}
+
+run.rrline<-function(xx,yy,iter=5){
+out.coef<-matrix(0,iter,3)
+ll<-(1:length(xx))[!is.na(xx)&!is.na(yy)]
+n<-length(ll);x<-xx[ll];y<-yy[ll];newy<-y
+for(i in 1:iter){
+  rr<-rrline1(x,newy)
+  out.coef[i,]<-c(rr$a,rr$b,rr$sumres)
+  newy<-rr$res
+  }
+dimnames(out.coef)<-list(format(1:iter),c("a","b","|res|"))
+aa<-sum(out.coef[, 1]);bb<-sum(out.coef[, 2]);cc<-sum(abs(y-aa-bb*x))
+res<-yy-aa-bb*xx
+out.coef<-rbind(out.coef, c(aa, bb, cc))
+print(round(out.coef,5))
+return(list(a=aa, b=bb,res=res,coef=out.coef))
+}
+
+y3<-run.rrline(freeny[,5],freeny[,1])
+x13<-run.rrline(freeny[,5],freeny[,3])
+y31<-run.rrline(x13$res,y3$res)
+x23<-run.rrline(freeny[,5],freeny[,4])
+x231<-run.rrline(x13$res,x23$res)
+y312<-run.rrline(x231$res,y31$res)
+
+cons<-y3$a+y31$a-y31$b*x13$a+y312$a-y312$b*x23$a-x231$a+x231$b*x13$a
+X3<-y3$b-y31$b*x13$b-y312$b*x23$b+y312$b*x231$b*x13$b
+X1<-y31$b-y312$b*x231$b
+X2<-y312$b
+
+```
+
+    the formula: y = -30.72755 + `r X3`X3 + `r X1`X1 + `r X2`X2 
+
+(c) Now fit a robust fit by sweeping out, in turn, X1, then X3, then X2.
+```{r 1.c, include=FALSE}
+y1<-run.rrline(freeny[,3],freeny[,1])
+x31<-run.rrline(freeny[,3],freeny[,5])
+y13<-run.rrline(x31$res,y1$res)
+x21<-run.rrline(freeny[,3],freeny[,4])
+x213<-run.rrline(x31$res,x21$res)
+y132<-run.rrline(x213$res,y13$res)
+
+cons<-y1$a+y13$a-y13$b*x31$a+y132$a-y132$b*x21$a-x213$a+x213$b*x31$a
+X1<-y1$b-y13$b*x31$b-y132$b*x21$b+y132$b*x213$b*x31$b
+X3<-y13$b-y132$b*x213$b
+X2<-y132$b
+
+
+```
+
+    the formula: y = -30.50599 + `r X1`X1 + `r X3`X3 + `r X2`X2 
+
+(d) Compare the three sets of coefficients. What do you observe?
+
+The coefficients from linear fit differs a lot from (b)&(c), while RRfit produced similar results. Interpretation: outliers exert serious distortion on the coefficients in linear regression,  RRfit is robust, the outcome of different sequence in fit change only a little bit.
+
+2. *Smoking data*: Below are the smoking rates (in percentages, times 10) for 9 different years, for 4 race x gender groups and 4 categories of education level (< 12 years of schools, HS graduate, some college, college graduate):
+
+```{r 2.data,include=FALSE}
+year<-c(1974,1979,1983,1985,1987,1988,1990,1991,1992)
+year<-year-1990
+wm.1<-c(516,480,479,452,453,448,417,417,414)
+wm.2<-c(422,386,371,348,346,342,330,324,329)
+wm.3<-c(414,364,326,323,280,283,254,260,259)
+wm.4<-c(281,228,211,192,174,171,145,147,150)
+smoke.wm<-data.frame(year,wm.1,wm.2,wm.3,wm.4)
+colnames(smoke.wm)<-c("year","< 12","12","13-15",">= 16")
+
+bm.1<-c(583,501,460,511,494,453,414,478,445)
+bm.2<-c(512,484,472,419,436,483,374,396,387)
+bm.3<-c(457,393,447,423,324,348,283,327,270)
+bm.4<-c(418,379,313,320,209,215,206,183,269)
+smoke.bm<-data.frame(year,bm.1,bm.2,bm.3,bm.4)
+colnames(smoke.bm)<-c("year","< 12","12","13-15",">= 16")
+
+wf.1<-c(370,361,355,371,370,352,336,337,331)
+wf.2<-c(321,299,309,294,294,293,268,275,295)
+wf.3<-c(305,306,280,271,262,238,214,223,236)
+wf.4<-c(258,219,189,168,164,151,137,133,142)
+smoke.wf<-data.frame(year,wf.1,wf.2,wf.3,wf.4)
+colnames(smoke.wf)<-c("year","< 12","12","13-15",">= 16")
+
+bf.1<-c(364,319,369,392,350,339,268,333,332)
+bf.2<-c(419,330,352,323,281,301,240,260,259)
+bf.3<-c(332,288,265,237,272,268,231,248,270)
+bf.4<-c(352,434,287,275,195,222,169,144,258)
+smoke.bf<-data.frame(year,bf.1,bf.2,bf.3,bf.4)
+colnames(smoke.bf)<-c("year","< 12","12","13-15",">= 16")
+```
+
+(a) Fit RRline to each of the 16 rows (1 for each race x gender x education level). Use centercept at 1990 (we don't care about smoking rates at year 0).
+
+```{r, include=FALSE}
+wmline.1<-run.rrline(year,wm.1)
+wmline.2<-run.rrline(year,wm.2)
+wmline.3<-run.rrline(year,wm.3)
+wmline.4<-run.rrline(year,wm.4)
+bmline.1<-run.rrline(year,bm.1)
+bmline.2<-run.rrline(year,bm.2)
+bmline.3<-run.rrline(year,bm.3)
+bmline.4<-run.rrline(year,bm.4)
+wfline.1<-run.rrline(year,wf.1)
+wfline.2<-run.rrline(year,wf.2)
+wfline.3<-run.rrline(year,wf.3)
+wfline.4<-run.rrline(year,wf.4)
+bfline.1<-run.rrline(year,bf.1)
+bfline.2<-run.rrline(year,bf.2)
+bfline.3<-run.rrline(year,bf.3)
+bfline.4<-run.rrline(year,bf.4)
+```
+
+White male:
+
+      y = `r wmline.1$a` + `r wmline.1$b`x
+
+      y = `r wmline.2$a` + `r wmline.2$b`x
+
+      y = `r wmline.3$a` + `r wmline.3$b`x
+
+      y = `r wmline.4$a` + `r wmline.4$b`x
+
+Black male:
+
+      y = `r bmline.1$a` + `r bmline.1$b`x
+    
+      y = `r bmline.2$a` + `r bmline.2$b`x
+
+      y = `r bmline.3$a` + `r bmline.3$b`x
+
+      y = `r bmline.4$a` + `r bmline.4$b`x
+    
+White female
+
+      y = `r wfline.1$a` + `r wmline.1$b`x
+
+      y = `r wfline.2$a` + `r wfline.2$b`x
+
+      y = `r wfline.3$a` + `r wfline.3$b`x
+
+      y = `r wfline.4$a` + `r wfline.4$b`x
+
+Black female
+
+      y = `r bfline.1$a` + `r bfline.1$b`x
+
+      y = `r bfline.2$a` + `r bfline.2$b`x
+
+      y = `r bfline.3$a` + `r bfline.3$b`x
+
+      y = `r bfline.4$a` + `r bfline.4$b`x
+
+(b) Place the centercepts in a 4x4 table (rows = education, columns = race-gender group), and perform median polish. Calculate residuals.
+
+```{r, echo=FALSE}
+twoway<-matrix(c(wmline.1$a, bmline.1$a, wfline.1$a, bfline.1$a,
+               wmline.2$a, bmline.2$a, wfline.2$a, bfline.2$a,
+               wmline.3$a, bmline.3$a, wfline.3$a, bfline.3$a,
+               wmline.4$a, bmline.4$a, wfline.4$a, bfline.4$a),nrow =4,ncol = 4)
+medpolished<-medpolish(twoway)
+medpolished
+```
+
+(c) Place the slopes in a 4x4 table (rows = education, columns = race-gender group), and perform median polish. Calculate residuals.
+
+```{r, echo=FALSE}
+twoway<-matrix(c(wmline.1$b, bmline.1$b, wfline.1$b, bfline.1$b,
+               wmline.2$b, bmline.2$b, wfline.2$b, bfline.2$b,
+               wmline.3$b, bmline.3$b, wfline.3$b, bfline.3$b,
+               wmline.4$b, bmline.4$b, wfline.4$b, bfline.4$b),nrow =4,ncol = 4)
+medpolished<-medpolish(twoway)
+medpolished
+```
+
+(d) What do the results suggest about the typical smoking rate, by race-gender group, around 1990?
+
+    The black communiy had higher smoking rate than their white conuterpart of the same gender and education, famele had lower smoking rate compared to their male counterpart.
+
+(e) What do the results suggest about the trend in smoking rates by race-gender group between 1974 and 1992?
+
+    The smoking rate decreases. The higer education level, the more decrease tendency (with one execption black female with HS diploma has a slope of -9.3, much higher than the some-college group).

@@ -1,0 +1,358 @@
+---
+title: "EDA Oct 24"
+output: pdf_document
+---
+##Ex1
+\noindent Recall the hearing data from our first lecture. The data came from Cuthbert Daniel, a gentle and very smart British statistician (1904-1997). The data are prevalence rates of hearing loss in males aged 55-64 with hearing levels at least 16 dB above audible zero, at 500, 1000, 2000, 3000, 4000, 6000 Hz (cycles per second) and also "normal speech". Daniel suggested, from the pattern of LS residuals, that observations in cells [3,2], [4,3], [5,3], [6,3], [3,1] might be suspicious, as well as any whose LS residual exceeded 3 times the "approximate sigma" (10.2) in magnitude.
+
+    
+**a.** Conduct both the means analysis and the median polish for this table.
+
+```{r data, include=FALSE}
+hz<-c(500,1000,2000,3000,4000,6000)
+profl<-c(2.1,1.7,14.4,57.4,66.2,75.2,4.1)
+farm<-c(6.8,8.1,14.8,62.4,81.7,94.0,10.2)
+sales<-c(8.4,8.4,27.0,37.4,53.3,74.3,10.7)
+crafts<-c(1.4,1.4,30.9,63.3,80.7,87.9,5.5)
+oper<-c(14.6,12.0,36.5,65.5,79.7,93.3,18.1)
+serv<-c(7.9,3.7,36.4,65.6,80.8,87.8,11.4)
+labor<-c(4.8,4.5,31.4,59.8,82.4,80.5,6.1)
+hearing<-data.frame(profl,farm,sales,crafts,oper,serv,labor)
+row.names(hearing)<-c("500","1000","2000","3000","4000","6000","normal")
+
+med<-medpolish(hearing)
+rowmean<-rowMeans(hearing)
+hearing.rowdeducted<-apply(hearing,2,function(x){return(x-rowmean)})
+hearing.rowdeducted<-cbind(hearing.rowdeducted,rowmean)
+colmean<-colMeans(hearing.rowdeducted)
+hearing.meaned<-t(apply(hearing.rowdeducted,1,function(x){return(x-colmean)}))
+hearing.meaned<-rbind(hearing.meaned,colmean)
+```
+
+```{r}
+hearing.meaned
+med$residuals
+```
+
+    
+**b.** Calculate the matrix of residuals and stem-and-leaf them (back-to-back).
+    
+```{r 1.b,echo=FALSE}
+library(tcltk)
+library(aplpack)
+stem.leaf.backback(med$residuals,hearing.meaned[-8,-8],back.to.back = TRUE)
+```
+
+    
+    
+**c.** What is the effect of rows (Hz) and of columns (professionals)? Calculate a robust measure of the percent of the variation in the data explained by your fit (pseudo-R2).
+    
+```{r 1.c,echo=FALSE}
+med$row
+med$col
+R2<-1-sum(abs(med$residuals))/sum(abs(hearing-median(as.matrix(hearing))))
+```
+**pseudo-$R^2$ = `r R2`**
+
+**d.** Construct the diagnostic plot. Does it suggest the need for re-expression?
+
+```{r 1.d,echo=FALSE,fig.width=3,fig.height=3}
+xaxis<-matrix(rep(0,49),ncol = 7)
+for(i in 1:7){
+  for(j in 1:7)
+    xaxis[i,j]<-med$row[i]*med$col[j]/median(as.matrix(hearing))
+}
+xaxis<-as.vector(xaxis)
+yaxis<-as.vector(med$residuals)
+diagnostic<-data.frame(xaxis,yaxis)
+library(ggplot2)
+ggplot(diagnostic,aes(x=xaxis,y=yaxis))+geom_point()+labs(x="comparison value",y="residuals")
+```
+
+**The diagnostic does not show a systematic position of the points, re-expression not needed.**
+
+**e.** Does the median polish table of residuals suggest any outliers (based on the boxplot outlier labeling rule)? If so, which ones?
+
+```{r 1.e, echo=FALSE,fig.width=3,fig.height=3}
+residuals<-as.vector(med$residuals)
+residuals<-as.data.frame(residuals)
+ggplot(residuals,aes(x=1,y=residuals))+geom_boxplot()+labs(x="")
+```
+
+**There are three outliers according to boxplot.**
+
+(2000Hz, farm)=-16.1
+
+(3000Hz,sales)=-21.1
+
+(4000Hz, sales)=-22.5.
+
+##Ex2
+
+**a.** Use median polish to construct a fit to the two sets of values in Table 7-4, p.267 (see data below): corn1.mat = yield in pounds filed weight of ear corn, corn2.mat = number of plants.
+
+```{r 2.a, include=FALSE}
+corn1.tb174<-c(202,155,191,134,145,201,203,180,188,185,185,220,201,231,238,261,202,178,198,226,228,221,207,204)
+corn1.mat<-matrix(corn1.tb174,byrow = T,ncol = 4)
+dimnames(corn1.mat)<-list(LETTERS[1:6],format(1:4))
+corn2.tb174<-c(28,22,27,19,23,26,28,24,27,24,27,28,24,28,30,30,30,26,26,29,30,25,27,24)
+corn2.mat<-matrix(corn2.tb174,byrow=T,ncol=4)
+dimnames(corn2.mat)<-list(LETTERS[1:6],format(1:4))
+medcorn1<-medpolish(corn1.mat)
+medcorn2<-medpolish(corn2.mat)
+```
+```{r,include=TRUE}
+medcorn1$residuals
+medcorn2$residuals
+```
+**b.** Construct diagnostic plots for both median polish fits. Is re-expression indicated?
+
+```{r 2.b, echo=FALSE,fig.width=7,fig.height=3.5}
+library(gridExtra)
+compareValue1<-medcorn1$row%*%t(medcorn1$col)/median(corn1.tb174)
+diagnostic1<-data.frame(as.vector(medcorn1$residuals),as.vector(compareValue1));colnames(diagnostic1)<-c("residuals","comparison")
+box1<-ggplot(diagnostic1,aes(x=comparison,y=residuals))+geom_point()+ggtitle("Dignostic plot of Corn1")
+compareValue2<-medcorn2$row%*%t(medcorn2$col)/median(corn2.tb174)
+diagnostic2<-data.frame(as.vector(medcorn2$residuals),as.vector(compareValue2));colnames(diagnostic2)<-c("residuals","comparison")
+box2<-ggplot(diagnostic2,aes(x=comparison,y=residuals))+geom_point()+ggtitle("Dignostic plot of Corn2")
+grid.arrange(box1,box2,ncol=2)
+```
+
+**No need for re-expression.**
+
+**c.** Calculate pseudo-R2. How good are the median polish fits?
+
+```{r 2.c, include=FALSE}
+R2corn1<-1-sum(abs(medcorn1$residuals))/sum(abs(corn1.mat-median(corn1.mat)))
+R2corn2<-1-sum(abs(medcorn2$residuals))/sum(abs(corn2.mat-median(corn2.mat)))
+```
+
+**pseudo-$R^2$ for corn1 = `r R2corn1`. pseudo-$R^2$ for corn2 = `r R2corn2`.**
+
+**d.** Plot "corn1.mat" (y-axis) vs "corn2.mat" (x-axis). Fit RR line (you may round intercept and slope to nearest integer). How good is the "fit" ("pseudo R-squared")?
+
+```{r 2.d,echo=FALSE,fig.width=3,fig.height=2}
+plot2d<-data.frame(corn1.tb174,corn2.tb174);colnames(plot2d)<-c("corn1","corn2")
+ggplot(plot2d,aes(x=corn2,y=corn1))+geom_point()
+```
+
+```{r, echo=FALSE}
+rrline1<-function(x,y){
+n<-length(x);nmod3<-n%%3;
+if(nmod3==0) 
+  n3<-n/3;
+if(nmod3==1) 
+  n3<-(n-1)/3;
+if(nmod3==2) 
+  n3<-(n+1)/3;
+x.order<-order(x)
+medxL<-median(x[x.order][1:n3])
+medxR<-median(rev(x[x.order])[1:n3])
+medyL<-median(y[x.order][1:n3])
+medyR<-median(rev(y[x.order])[1:n3])
+slope1<-(medyR-medyL)/(medxR-medxL)
+int1<-median(y-slope1*x)
+newy<-y-slope1*x-int1
+sumres<-sum(abs(newy))
+return(list(a=int1,b=slope1,sumres=sumres,res=newy))
+}
+
+run.rrline<-function(xx,yy,iter=5){
+out.coef<-matrix(0,iter,3)
+ll<-(1:length(xx))[!is.na(xx)&!is.na(yy)]
+n<-length(ll);x<-xx[ll];y<-yy[ll];newy<-y
+for(i in 1:iter){
+  rr<-rrline1(x,newy)
+  out.coef[i,]<-c(rr$a,rr$b,rr$sumres)
+  newy<-rr$res
+  }
+dimnames(out.coef)<-list(format(1:iter),c("a","b","|res|"))
+aa<-sum(out.coef[, 1]);bb<-sum(out.coef[, 2]);cc<-sum(abs(y-aa-bb*x))
+res<-yy-aa-bb*xx
+out.coef<-rbind(out.coef, c(aa, bb, cc))
+print(round(out.coef,5))
+return(list(a=aa, b=bb,res=res,coef=out.coef))
+}
+
+RRfit<-run.rrline(corn2.tb174,corn1.tb174)
+
+R2.2d<-1-sum(abs(RRfit$res))/sum(abs(corn1.tb174-median(corn2.tb174)))
+```
+
+**The pseudo-$R^2$ is `r R2.2d`.**
+
+**e.** Calculate residuals from RRline you fitted above. Place the residuals back into the matrix and perform median polish.
+
+```{r 2.e,echo=FALSE}
+fitres<-matrix(RRfit$res,byrow=T,ncol=4)
+dimnames(fitres)<-list(LETTERS[1:6],format(1:4))
+med2e<-medpolish(fitres)
+med2e$residuals
+```
+
+**f.** What do you learn from the analysis? Calculate your final pseudo-R2 .
+
+```{r 2.f,include=FALSE}
+R2.2f<-1-sum(abs(med2e$res))/sum(abs(fitres-med2e$overall))
+```
+
+**The final pseudo-$R^2$ is `r R2.2f`. I learned that when two sets of data have significant correlation, we should first perform regression between the two,sweep out overlapping part then use median polish method.**
+
+##EX3
+\noindent 3. *Connecticut elections*: Below are the data for the percent Democratic vote in the 8 counties in Connecticut in each election year from 1920 to 1964. The order of the columns is: Litchfield, Fairfield, Middlesex, Tolland, New London, New Haven, Windham, Hartford.
+
+\noindent a. Plot the results for the 8 counties as a function of year, all on one graph. (If using R, use `matplot(year,CTelections,type="b")`). You can add `pch="LFMTNEWH"` as a way to distinguish the lines so you can identify the counties by a letter instead of by a number.)
+
+```{r 3,include=FALSE}
+year<-seq(from=1920,to=1964,by=4)
+Litchfield<-c(32.5,30.0,36.0,41.9,48.1,46.0,44.4,41.0,36.1,30.1,46.1,65.8)
+Fairfield<-c(30.9,24.5,43.7,47.1,56.3,50.7,48.9,43.3,38.9,29.8,46.6,60.8)
+Middlesex<-c(33.1,29.9,39.7,46.3,52.9,49.2,48.6,47.5,41.5,35.2,50.1,67.5)
+Tolland<-c(31.0,30.3,39.6,46.0,52.8,50.5,48.5,46.9,41.2,36.5,48.6,69.0)
+New_London<-c(34.6,32.1,43.3,49.8,53.9,54.7,54.8,51.8,45.1,38.6,51.6,69.1)
+New_Haven<-c(36.5,34.4,50.5,52.4,60.5,55.0,53.9,50.2,45.1,37.0,58.0,69.1)
+Windham<-c(37.1,36.6,48.5,53.1,52.4,55.4,55.3,53.0,46.4,40.4,57.0,73.5)
+Hartford<-c(35.9,31.4,46.4,49.9,61.2,56.5,57.3,54.3,49.4,41.9,58.9,73.0)
+Connecticut<-data.frame(Litchfield,Fairfield,Middlesex,Tolland,New_London,New_Haven,Windham,Hartford)
+rownames(Connecticut)<-c("1920","1924","1928","1932","1936","1940","1944","1948","1952","1956","1960","1964")
+```
+```{r 3.a,echo=FALSE,fig.height=5,fig.width=9}
+matplot(year,Connecticut,type="b",pch="LFMTNEWH")
+```
+
+**b.** Median polish the table. You may round values to the nearest tenth of a percentage point.
+```{r 3.b,include=TRUE}
+med3b<-medpolish(Connecticut)
+med3b$res
+```
+
+**c.** Construct the diagnostic plot. What does it tell you?
+
+```{r 3.c,echo=FALSE,fig.height=2.8,fig.width=5}
+comparison3c<-med3b$row%*%t(med3b$col)/median(as.matrix(Connecticut))
+diagnostic3c<-data.frame(as.vector(med3b$residuals),as.vector(comparison3c))
+colnames(diagnostic3c)<-c("residuals","comparison")
+ggplot(diagnostic3c,aes(x=comparison,y=residuals))+geom_point()+labs(x="comparison value")+ggtitle("diagnostic plot Connecticut")
+
+```
+
+
+**The residuals seem to have a linear relationship with comparison values, indicating a re-expression.**
+
+
+**d.** If a re-expression of the data are needed, re-express the data and re-fit by median polish.
+
+```{r 3.d}
+RRfit3d<-run.rrline(as.vector(comparison3c),as.vector(med3b$residuals))
+RRfit3d$b
+lm(as.vector(med3b$residuals)~as.vector(comparison3c))
+```
+
+**RRfit comparison value to medpolish residuals, the slope is `r RRfit3d$b`, 1-slope is `r 1-RRfit3d$b`,close to 0.5, square root-transformation.**
+```{r, include=TRUE}
+med3d<-medpolish(sqrt(Connecticut))
+med3d$residuals
+```
+
+**e.** Approximately how much of the variation in the original table does your final median polish fit explain? (i.e., calculate a robust measure of the traditional $R^2$.)
+```{r 3.e,include=FALSE}
+R23e<-1-sum(abs(med3d$res))/sum(abs(sqrt(Connecticut)-median(as.matrix(sqrt(Connecticut)))))
+```
+
+**The pseudo-$R^2$ is `r R23e` in the re-expressed medpolish.**
+
+**f.** Plot the year effects. Do you observe a pattern?
+
+```{r 3.f, echo=FALSE,fig.width=7,fig.height=3}
+plot3f1<-qplot(year,med3d$row)+labs(y="year effect")+ggtitle("year effect of re-expressed fit")
+plot3f2<-qplot(year,med3b$row)+labs(y="year effect")+ggtitle("year effect of original fit")
+grid.arrange(plot3f1,plot3f2,ncol=2)
+```
+
+**The year effect is very similar to the plot in a), which indicates our fit is suitable.**
+
+**g.** Plot the county effects. What do you notice?
+
+**The effects in counties have a significant difference.**
+
+```{r 3.g,echo=FALSE,fig.width=7,fig.height=5}
+plot3g1<-qplot(as.factor(colnames(Connecticut)),med3d$col)+labs(y="county effect",x="county")+ggtitle("county effect of re-expressed fit")
+plot3g2<-qplot(as.factor(colnames(Connecticut)),med3b$col)+labs(y="county effect",x="county")+ggtitle("county effect of original fit")
+grid.arrange(plot3g1,plot3g2,ncol=1)
+```
+
+**h.** Stem and leaf the residuals, and plot the residuals as a function of year. From a five-number summary of all 96 residuals, which (county,year) residuals are "out" or "far-out" (based on the boxplot labeling rules)?
+
+```{r 3.h,include=TRUE,fig.height=4,fig.width=3}
+stem.leaf(med3d$residuals)
+qplot(1,as.vector(med3d$residuals),geom = "boxplot")+labs(x="",y="residuals(re-expressed fit)")
+```
+
+**There are 10 outliers according to the boxplot. They are: **
+
+**(1920,Litchfield),(1964,Litchfield),(1928,Fairfield),(1936,Fairfield),(1928,New Haven),**
+
+**(1924,Fairfield),(1956,Fairfield),(1936,Windham),(1924,Hartford),(1932,Hartford).**
+
+**i.** Construct side-by-side boxplots of the 12 residuals in each state. Which counties are most variable?
+
+```{r 3.i,include=TRUE,fig.height=2.6}
+county<-c(rep("Litchfield",12),rep("Fairfield",12),rep("Middlesex",12),rep("Tolland",12),rep("New London",12),rep("New Haven",12),rep("Windham",12),rep("Hartford",12))
+residuals3i<-as.vector(med3d$residuals)
+box3i<-data.frame(county,residuals3i);colnames(box3i)<-c("county","residuals")
+ggplot(box3i,aes(x=factor(county),y=residuals))+geom_boxplot()+labs(x="county")
+```
+
+**From the aligned boxplot, Fairfield is the most variable county.**
+
+##Ex5
+
+**a)** Median polish starting with rows.
+```{r 5.a,echo=FALSE}
+dataex5<-matrix(c(10,2,3,4,5,2,3,4,5,6,3,4,5,6,7,4,5,6,7,8,5,6,7,8,20),byrow = T,ncol = 5)
+dataex5.rowmedian<-apply(dataex5,1,median)
+dataex5.rowdeducted<-apply(dataex5,2,function(x){return(x-dataex5.rowmedian)})
+dataex5.rowdeducted<-cbind(dataex5.rowdeducted,dataex5.rowmedian)
+dataex5.colmedian<-apply(dataex5.rowdeducted,2,median)
+dataex5.medianed<-t(apply(dataex5.rowdeducted,1,function(x){return(x-dataex5.colmedian)}))
+dataex5.medianed<-rbind(dataex5.medianed,dataex5.colmedian)
+dataex5.medianed[1,c(1:5)]<-dataex5.medianed[1,c(1:5)]+1
+dataex5.medianed[1,6]<-dataex5.medianed[1,6]-1
+dataex5.medianed
+```
+
+**b)** Median polish starting with columns.
+```{r 5.b, echo=FALSE}
+dataex5.colmedian<-apply(dataex5,2,median)
+dataex5.coldeducted<-t(apply(dataex5,2,function(x){return(x-dataex5.colmedian)}))
+dataex5.coldeducted<-rbind(dataex5.coldeducted,dataex5.colmedian)
+dataex5.rowmedian<-t(apply(dataex5.coldeducted,1,median))
+dataex5.medianed<-apply(dataex5.coldeducted,2,function(x){return(x-dataex5.rowmedian)})
+dataex5.medianed<-cbind(dataex5.medianed,t(dataex5.rowmedian))
+dataex5.medianed[c(1:5),1]<-dataex5.medianed[c(1:5),1]+1
+dataex5.medianed[6,1]<-dataex5.medianed[6,1]-1
+colnames(dataex5.medianed)<-c("","","","","","dataex5.rowmedian")
+dataex5.medianed
+```
+
+
+**c)** Analysis by means.
+
+```{r 5,echo=FALSE}
+dataex5.rowmean<-rowMeans(dataex5)
+dataex5.rowdeducted<-apply(dataex5,2,function(x){return(x-dataex5.rowmean)})
+dataex5.rowdeducted<-cbind(dataex5.rowdeducted,dataex5.rowmean)
+dataex5.colmean<-colMeans(dataex5.rowdeducted)
+dataex5.meaned<-t(apply(dataex5.rowdeducted,1,function(x){return(x-dataex5.colmean)}))
+dataex5.meaned<-rbind(dataex5.meaned,dataex5.colmean)
+dataex5.meaned
+```
+
+**d)** 20% trimmed mean.
+
+```{r,echo=FALSE}
+matrixd<-matrix(c(7.27,-0.73,-0.73,-0.73,-0.73,-1.27,-0.73,0.27,0.27,0.27,0.27,-1.27,-0.73,0.27,0.27,0.27,0.27,-0.27,-0.73,0.27,0.27,0.27,0.27,0.73,-0.73,0.27,0.27,0.27,11.27,1.73,-1.27,-1.27,-0.27,0.73,1.73,5.27),byrow = T,ncol = 6)
+colnames(matrixd)<-c("","","","","","dataex5.rowmean")
+rownames(matrixd)<-c("","","","","","dataex5.colmean")
+matrixd
+```

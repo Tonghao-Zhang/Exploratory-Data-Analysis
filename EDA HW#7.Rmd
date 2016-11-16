@@ -1,0 +1,197 @@
+---
+title: "EDA HW#7"
+author: "Tonghao Zhang"
+date: "2016/11/6"
+output: pdf_document
+---
+
+```{r,echo=FALSE}
+library(ggplot2)
+x<-c(576,635,558,578,666,580,555,661,651,605,653,575,545,572,594)
+y<-c(339,330,281,303,344,307,300,343,336,313,312,274,276,288,296)
+data3<-data.frame(X=x,Y=y)
+# ggplot(data3,aes(x=X,y=Y))+geom_point()
+```
+
+
+```{r,include=FALSE}
+rrline1<-function(x,y){
+n<-length(x);nmod3<-n%%3;
+if(nmod3==0) 
+  n3<-n/3;
+if(nmod3==1) 
+  n3<-(n-1)/3;
+if(nmod3==2) 
+  n3<-(n+1)/3;
+x.order<-order(x)
+medxL<-median(x[x.order][1:n3])
+medxR<-median(rev(x[x.order])[1:n3])
+medyL<-median(y[x.order][1:n3])
+medyR<-median(rev(y[x.order])[1:n3])
+slope1<-(medyR-medyL)/(medxR-medxL)
+int1<-median(y-slope1*x)
+newy<-y-slope1*x-int1
+sumres<-sum(abs(newy))
+return(list(a=int1,b=slope1,sumres=sumres,res=newy))
+}
+
+run.rrline<-function(xx,yy,iter=5){
+out.coef<-matrix(0,iter,3)
+ll<-(1:length(xx))[!is.na(xx)&!is.na(yy)]
+n<-length(ll);x<-xx[ll];y<-yy[ll];newy<-y
+for(i in 1:iter){
+  rr<-rrline1(x,newy)
+  out.coef[i,]<-c(rr$a,rr$b,rr$sumres)
+  newy<-rr$res
+  }
+dimnames(out.coef)<-list(format(1:iter),c("a","b","|res|"))
+aa<-sum(out.coef[, 1]);bb<-sum(out.coef[, 2]);cc<-sum(abs(y-aa-bb*x))
+res<-yy-aa-bb*xx
+out.coef<-rbind(out.coef, c(aa, bb, cc))
+#print(round(out.coef,5))
+return(list(a=aa, b=bb,res=res,coef=out.coef))
+}
+
+RRfit3<-run.rrline(data3$X,data3$Y)
+# out.testjk<-matrix(0,15,3)
+# pv.testjk<-matrix(0,15,3) 
+# for(i in 1:15){
+#   newx<-data3$X[-i]
+#   newy<-data3$Y[-i]
+#   rr1<-run.rrline(newx,newy)
+#   out.testjk[i,]<-rr1$coef[6,1:3]
+#   }
+# tmp.coefs<-c(-47.91398,0.59140,152.3226)
+# for(j in 1:3){
+#   pv.testjk[,j]<-15*tmp.coefs[j]-14*out.testjk[,j]
+#   }
+# jk.se<-apply(pv.testjk,2,sd)/sqrt(15)
+# jk.se
+
+out.jk<-rep(0,15)
+value.jk<-rep(0,15)
+for(i in 1:15){
+  newx<-data3$X[-i]
+  newy<-data3$Y[-i]
+  rho<-cor(x=newx,y=newy,method = "pearson")
+  out.jk[i]<-0.5*log((1+rho)/(1-rho))
+}
+rho<-cor(x=data3$X,y=data3$Y,method = "pearson")
+value.jk<-15*0.5*log((1+rho)/(1-rho))-14*out.jk
+jk.est<-mean(value.jk)
+jk.se<-sd(value.jk)/sqrt(15)
+jk.est
+jk.se
+
+B<-2000
+theta.bootstrap<-rep(0,B)
+for(i in 1:B){
+  ii<-sample(1:15,15,replace=TRUE)
+  newx<-data3$X[ii]
+  newy<-data3$Y[ii]
+  rho<-cor(x=newx,y=newy,method = "pearson")
+  theta.bootstrap[i]<-0.5*log((1+rho)/(1-rho))
+}
+bt.est<-mean(theta.bootstrap)
+bt.se<-sd(theta.bootstrap)
+bt.est
+bt.se
+critical<-qt(0.975,14)
+jk.CI<-c(jk.est-critical*jk.se,jk.est+critical*jk.se)
+bt.CI<-c(bt.est-critical*bt.se,bt.est+critical*bt.se)
+jk.CI
+bt.CI
+critical<-qnorm(0.975,sd=1/(12))
+fish.jk<-c(jk.est-critical,jk.est+critical)
+fish.jk
+fish.bt<-c(bt.est-critical,bt.est+critical)
+fish.bt
+```
+
+##EX3
+
+Jacknife estimate is 0.9170373, standard deviation is 0.4406764. CI: -0.02811946  1.86219412
+
+Bootstrap estiamte is 1.125376, standard deviation is 0.3808777. CI: 0.307378 1.943373
+
+Fisher's CI using Jacknife estimate as $\rho$ is 0.753707 1.080368.
+
+Fisher's CI using Bootstrap estimate as $\rho$ is 0.9620454 1.2887060.
+
+
+```{r,include=FALSE}
+profl<-c(2.1,1.7,14.4,57.4,66.2,75.2,4.1)
+farm<-c(6.8,8.1,14.8,62.4,81.7,94.0,10.2)
+sales<-c(8.4,8.4,27.0,37.4,53.3,74.3,10.7)
+crafts<-c(1.4,1.4,30.9,63.3,80.7,87.9,5.5)
+oper<-c(14.6,12.0,36.5,65.5,79.7,93.3,18.1)
+serv<-c(7.9,3.7,36.4,65.6,80.8,87.8,11.4)
+labor<-c(4.8,4.5,31.4,59.8,82.4,80.5,6.1)
+hearing<-cbind(profl,farm,sales,crafts,oper,serv,labor)
+colnames(hearing)<-c("profl","farm","sales","crafts","oper","serv","labor")
+row.names(hearing)<-c("500","1000","2000","3000","4000","6000","normal")
+
+mpol<-medpolish(hearing)
+res<-mpol$res
+roweff<-mpol$row
+coleff<-mpol$col
+mat.roweff<-matrix(roweff,7,7)
+mat.coleff<-matrix(rep(coleff,7),byrow=T,nrow=7)
+Meff<-mpol$overall
+NB<-200
+bmat<-matrix(0,NB,15)
+colnames(bmat)<-c("overall","500","1000","2000","3000","4000","6000","normal","profl","farm","sales","crafts","oper","serv","labor")
+#dimnames(bmat)<-list(format(1:NB), c("Meff",paste("a",format(1:nrow(infmort)),sep=""), paste("b",format(1:ncol(infmort)),sep=""), "mad(res)"))
+for(i in 1:NB){
+  xx<-matrix(sample(res,49,replace=T),7)
+  newdata<-xx+mat.roweff+mat.coleff+Meff
+  new<-medpolish(newdata)
+  bmat[i,]<-c(new$overall,new$row,new$col)
+}
+
+
+xbars<-function(x){
+  c(mean(x,na.rm=T),sd(x,na.rm=T))
+}
+
+critical<-qt(0.975,6)
+mat<-round(apply(bmat,2,xbars),3)
+CI<-matrix(0,2,15)
+colnames(CI)<-c("overall","500","1000","2000","3000","4000","6000","normal","profl","farm","sales","crafts","oper","serv","labor")
+CI[1,]<-mat[1,]-critical*mat[2,]
+CI[2,]<-mat[1,]+critical*mat[2,]
+```
+
+##EX4
+
+CIs are:
+```{r,echo=FALSE}
+CI
+effect<-c(roweff,coleff,Meff)
+data4<-data.frame(effect=effect)
+```
+
+Notched boxplots of the row & column effects.
+
+```{r,include=TRUE}
+ggplot.data<-data.frame(fit=as.vector(t(bmat)))
+ggplot.data<-cbind(ggplot.data,x=c("overall","500","1000","2000","3000","4000","6000","normal","profl","farm","sales","crafts","oper","serv","labor"))
+ggplot(ggplot.data,aes(x=x,y=fit))+geom_boxplot(notch = TRUE)
+
+```
+
+From boxplots, the effects of 1000, 3000, 4000, 500, 6000, normal, oper, overall are significantly different from 0.
+
+
+The correlation matrix is:
+
+```{r,echo=FALSE}
+# ggplot.data<-data.frame(fit=as.vector(t(bmat)))
+# ggplot.data<-cbind(ggplot.data,x=c("overall","500","1000","2000","3000","4000","6000","normal","profl","farm","sales","crafts","oper","serv","labor"))
+# ggplot(ggplot.data,aes(x=x,y=fit))+geom_boxplot(notch = TRUE)
+
+cor<-cor(bmat)
+cor
+```
+
+From the correlation matrix we can see there is strong relationship in pairs of overall and all frequency effects, pairs of frequencies. 
